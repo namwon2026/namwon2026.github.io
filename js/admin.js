@@ -209,7 +209,7 @@ function renderAdminRow(msg) {
   return `
     <tr>
       <td>
-        <select class="priority-select" onchange="changePriority('${msg.id}', this.value)">
+        <select class="priority-select" data-id="${escapeHtml(msg.id)}" onchange="changePriority(this.dataset.id, this.value)">
           <option value="immediate" ${msg.priority === 'immediate' ? 'selected' : ''}>&#128308; 즉시</option>
           <option value="medium" ${msg.priority === 'medium' ? 'selected' : ''}>&#128993; 중간</option>
           <option value="low" ${msg.priority === 'low' ? 'selected' : ''}>&#128994; 낮음</option>
@@ -226,8 +226,8 @@ function renderAdminRow(msg) {
       <td style="color:${kakaoColor}">${kakaoIcon}</td>
       <td>
         <div class="action-btns">
-          <button class="action-btn btn-reply" onclick="openReplyModal('${msg.id}', '${escapeHtml(msg.name)}', '${escapeHtml(msg.admin_reply || '')}')">&#128172;</button>
-          <button class="action-btn btn-delete" onclick="openDeleteModal('${msg.id}')">&#128465;</button>
+          <button class="action-btn btn-reply" data-id="${escapeHtml(msg.id)}" data-name="${escapeHtml(msg.name)}" data-reply="${escapeHtml(msg.admin_reply || '')}" onclick="openReplyModal(this.dataset.id, this.dataset.name, this.dataset.reply)">&#128172;</button>
+          <button class="action-btn btn-delete" data-id="${escapeHtml(msg.id)}" onclick="openDeleteModal(this.dataset.id)">&#128465;</button>
         </div>
       </td>
     </tr>

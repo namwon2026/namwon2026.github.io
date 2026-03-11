@@ -58,8 +58,9 @@ async function loadFeed(page) {
 }
 
 function renderMessageCard(msg) {
+  const fullEscaped = escapeHtml(msg.message);
   const messageText = msg.message.length > 100
-    ? `${escapeHtml(msg.message.substring(0, 100))}<span class="more-btn" onclick="this.parentElement.textContent='${escapeHtml(msg.message).replace(/'/g, "\\'").replace(/\n/g, ' ')}'">&hellip; 더보기</span>`
+    ? `${escapeHtml(msg.message.substring(0, 100))}<span class="more-btn" data-full="${fullEscaped.replace(/"/g, '&quot;')}" onclick="this.parentElement.innerHTML=this.dataset.full.replace(/\\n/g,'<br>')">&hellip; 더보기</span>`
     : escapeHtml(msg.message);
 
   const badges = [];
@@ -78,7 +79,7 @@ function renderMessageCard(msg) {
       </div>
       <div class="card-body">${messageText.replace(/\n/g, '<br>')}</div>
       <div class="card-footer">
-        <button class="cheer-btn ${cheered ? 'cheered' : ''}" onclick="handleCheer(this, '${msg.id}')" ${cheered ? 'disabled' : ''}>
+        <button class="cheer-btn ${cheered ? 'cheered' : ''}" data-id="${escapeHtml(msg.id)}" onclick="handleCheer(this, this.dataset.id)" ${cheered ? 'disabled' : ''}>
           &#10084;&#65039; 응원 <span class="cheer-count">${cheersCount > 0 ? cheersCount : 0}</span>
         </button>
       </div>

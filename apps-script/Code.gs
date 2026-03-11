@@ -68,6 +68,20 @@ function simpleHash(str) {
   return digest.map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('');
 }
 
+// ─── 입력값 살균 (HTML 태그 제거, 길이 제한) ────────────────
+function sanitize(str, maxLen) {
+  if (typeof str !== 'string') return '';
+  // HTML 태그 제거
+  let clean = str.replace(/<[^>]*>/g, '');
+  // 제어 문자 제거 (탭, 줄바꿈 제외)
+  clean = clean.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  if (maxLen) clean = clean.substring(0, maxLen);
+  return clean.trim();
+}
+
+// ─── 허용된 priority 값 ─────────────────────────────────────
+const VALID_PRIORITIES = ['immediate', 'medium', 'low', 'unclassified', 'spam'];
+
 // ─── 비속어 필터 ────────────────────────────────────────────
 const PROFANITY_LIST = [
   '시발','씨발','씨빨','시빨','ㅅㅂ','ㅆㅂ','병신','ㅂㅅ',
@@ -309,8 +323,19 @@ function getStats() {
   };
 }
 
-// ─── 응원하기 ───────────────────────────────────────────────
+// ─── 응원하기 (rate limit: 분당 10회) ────────────────────────
 function addCheer(messageId) {
+  if (!messageId || typeof messageId !== 'string') return { success: false };
+
+  // Rate limiting: PropertiesService로 분당 응원 횟수 제한
+  const props = PropertiesService.getScriptProperties();
+  const cheerKey = 'cheer_rate_' + Math.floor(Date.now() / 60000); // 분 단위
+  const cheerCount = parseInt(props.getProperty(cheerKey) || '0');
+  if (cheerCount >= 10) {
+    return { success: false, error: '잠시 후 다시 시도해주세요.' };
+  }
+  props.setProperty(cheerKey, String(cheerCount + 1));
+
   const sheet = getSheet('messages');
   if (!sheet || sheet.getLastRow() <= 1) return { success: false };
 
@@ -505,6 +530,11 @@ function updatePriority(token, messageId, priority) {
   const admin = verifyToken(token);
   if (!admin) return { success: false, error: '인증이 필요합니다.' };
 
+  // priority 화이트리스트 검증
+  if (!VALID_PRIORITIES.includes(priority)) {
+    return { success: false, error: '유효하지 않은 등급입니다.' };
+  }
+
   const sheet = getSheet('messages');
   const data = sheet.getDataRange().getValues();
 
@@ -541,6 +571,15 @@ function saveReply(token, messageId, replyText) {
   const admin = verifyToken(token);
   if (!admin) return { success: false, error: '인증이 필요합니다.' };
 
+  // 답장 내용 검증
+  if (!replyText || typeof replyText !== 'string') {
+    return { success: false, error: '답장 내용을 입력해주세요.' };
+  }
+  replyText = sanitize(replyText, 1000);
+  if (replyText.length === 0) {
+    return { success: false, error: '답장 내용을 입력해주세요.' };
+  }
+
   const sheet = getSheet('messages');
   const data = sheet.getDataRange().getValues();
 
@@ -569,7 +608,11 @@ function exportMessages(token) {
 
   for (let i = 1; i < data.length; i++) {
     const obj = {};
-    headers.forEach((h, j) => obj[h] = data[i][j]);
+    headers.forEach((h, j) => {
+      // IP 주소는 내보내기에서 제외 (개인정보 보호)
+      if (h === 'ip_address') return;
+      obj[h] = data[i][j];
+    });
     rows.push(obj);
   }
 
@@ -605,12 +648,18 @@ function handleRequest(e) {
     switch (action) {
       // ── 공개 API ────────────────────────────
       case 'init':
-        result = initializeSheets();
+        // init은 관리자만 실행 가능
+        const initAdmin = verifyToken(body.token || params.token);
+        if (!initAdmin) {
+          result = { success: false, error: '관리자 인증이 필요합니다.' };
+        } else {
+          result = initializeSheets();
+        }
         break;
 
       case 'feed':
-        const page = parseInt(params.page) || 1;
-        const limit = parseInt(params.limit) || 12;
+        const page = Math.max(1, parseInt(params.page) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(params.limit) || 12)); // 최대 50개
         result = getPublicFeed(page, limit);
         break;
 
@@ -619,6 +668,11 @@ function handleRequest(e) {
         break;
 
       case 'submit':
+        // 입력값 살균
+        body.name = sanitize(body.name, 10);
+        body.phone = sanitize(body.phone, 13);
+        body.message = sanitize(body.message, 500);
+
         // 이름 유효성 검증
         if (!/^[가-힣]{2,5}$/.test(body.name)) {
           result = { success: false, error: '이름을 정확히 입력해주세요 (2~5자 한글)' };
