@@ -8,7 +8,7 @@ let currentPage = 1;
 let totalMessages = 0;
 const cheeredSet = new Set(JSON.parse(localStorage.getItem('cheered') || '[]'));
 const CACHE_KEY = 'feed_cache_';
-const CACHE_TTL = 60000; // 1분 캐시
+const CACHE_TTL = 300000; // 5분 캐시
 
 function initFeed() {
   if (!document.getElementById('feed-list')) return; // 다른 페이지에서는 실행하지 않음
@@ -29,6 +29,16 @@ async function loadFeed(page) {
   const cached = getCachedFeed(page);
   if (cached) {
     renderFeedData(cached, feedList, pagination);
+    // 캐시 히트 시 인접 페이지도 프리패치
+    prefetchAdjacentPages(page, cached.total || 0);
+  } else {
+    // 캐시 미스 시 로딩 표시
+    feedList.innerHTML = `
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>메시지를 불러오는 중...</p>
+      </div>
+    `;
   }
 
   // API에서 최신 데이터 가져오기
@@ -40,6 +50,9 @@ async function loadFeed(page) {
 
     setCachedFeed(page, data);
     renderFeedData(data, feedList, pagination);
+
+    // 인접 페이지 프리패치 (현재 페이지 ±1)
+    prefetchAdjacentPages(page, data.total);
 
   } catch (err) {
     if (!cached) {
@@ -156,6 +169,19 @@ async function handleCheer(btn, messageId) {
     btn.disabled = false;
     btn.classList.remove('cheered');
   }
+}
+
+function prefetchAdjacentPages(current, total) {
+  const totalPages = Math.ceil(total / CONFIG.FEED_PAGE_SIZE);
+  const pagesToPrefetch = [current - 1, current + 1].filter(p => p >= 1 && p <= totalPages);
+
+  pagesToPrefetch.forEach(page => {
+    if (!getCachedFeed(page)) {
+      API.get('feed', { page: page, limit: CONFIG.FEED_PAGE_SIZE })
+        .then(data => setCachedFeed(page, data))
+        .catch(() => {});
+    }
+  });
 }
 
 function renderPagination(total, current) {
