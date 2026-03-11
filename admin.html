@@ -131,6 +131,52 @@
     </div>
   </div>
 
+  <!-- ════ 메시지 상세 모달 ════ -->
+  <div class="modal-overlay" id="detail-modal">
+    <div class="modal modal-detail">
+      <button class="modal-close-btn" onclick="closeDetailModal()" aria-label="닫기">&times;</button>
+      <div class="detail-header">
+        <h3>&#128172; 메시지 상세</h3>
+      </div>
+      <div class="detail-body">
+        <div class="detail-meta">
+          <div class="detail-meta-item">
+            <span class="detail-label">이름</span>
+            <span class="detail-value" id="detail-name"></span>
+          </div>
+          <div class="detail-meta-item">
+            <span class="detail-label">전화번호</span>
+            <span class="detail-value" id="detail-phone"></span>
+          </div>
+          <div class="detail-meta-item">
+            <span class="detail-label">작성일</span>
+            <span class="detail-value" id="detail-date"></span>
+          </div>
+          <div class="detail-meta-item">
+            <span class="detail-label">등급</span>
+            <span class="detail-value" id="detail-priority"></span>
+          </div>
+          <div class="detail-meta-row">
+            <span id="detail-rights" class="detail-badge hidden">권리당원</span>
+            <span id="detail-supporter" class="detail-badge hidden">서포터즈</span>
+          </div>
+        </div>
+        <div class="detail-section">
+          <div class="detail-section-label">시민 메시지</div>
+          <div class="detail-message" id="detail-message"></div>
+        </div>
+        <div class="detail-section" id="detail-reply-section" style="display:none;">
+          <div class="detail-section-label">&#128172; 관리자 답장</div>
+          <div class="detail-reply" id="detail-reply"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-sm btn-secondary" onclick="closeDetailModal()">닫기</button>
+        <button class="btn btn-sm btn-primary" id="detail-reply-btn" onclick="closeDetailAndReply()">&#128172; 답장하기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ════ 답장 모달 ════ -->
   <div class="modal-overlay" id="reply-modal">
     <div class="modal">

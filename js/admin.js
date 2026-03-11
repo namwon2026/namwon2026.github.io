@@ -8,6 +8,7 @@ let currentAdminPage = 1;
 let replyTargetId = '';
 let deleteTargetId = '';
 let deleteStep = 0;
+let cachedMessages = [];
 
 // ─── 초기화 ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -139,10 +140,11 @@ async function loadAdminMessages(page) {
     }
 
     // 테이블 렌더링
-    if (!res.messages || res.messages.length === 0) {
+    cachedMessages = res.messages || [];
+    if (cachedMessages.length === 0) {
       tbody.innerHTML = '<tr><td colspan="9" class="empty-state">검색 결과가 없습니다</td></tr>';
     } else {
-      tbody.innerHTML = res.messages.map(renderAdminRow).join('');
+      tbody.innerHTML = cachedMessages.map(renderAdminRow).join('');
     }
 
     // 페이지네이션
@@ -223,7 +225,7 @@ function renderAdminRow(msg) {
       </td>
       <td><strong>${escapeHtml(msg.name)}</strong></td>
       <td style="white-space:nowrap; font-size:0.75rem;">${escapeHtml(msg.phone)}</td>
-      <td class="msg-preview" title="${escapeHtml(msg.message)}">${preview}${replyPreview}</td>
+      <td class="msg-preview" data-id="${escapeHtml(msg.id)}" onclick="openDetailModal(this.dataset.id)" style="cursor:pointer;" title="클릭하여 상세보기">${preview}${replyPreview}</td>
       <td>${msg.is_rights_member ? '<span style="color:var(--success)">&#10004;</span>' : '-'}</td>
       <td>${msg.is_supporter ? '<span style="color:var(--accent)">&#10004;</span>' : '-'}</td>
       <td style="white-space:nowrap; font-size:0.72rem;">${formatDate(msg.created_at)}</td>
@@ -236,6 +238,61 @@ function renderAdminRow(msg) {
       </td>
     </tr>
   `;
+}
+
+// ─── 메시지 상세 모달 ─────────────────────────────────────────
+function openDetailModal(messageId) {
+  const msg = cachedMessages.find(m => m.id === messageId);
+  if (!msg) return;
+
+  const priorityLabels = {
+    'immediate': '🔴 즉시응답',
+    'medium': '🟡 중간',
+    'low': '🟢 낮음',
+    'unclassified': '⚪ 미분류',
+    'spam': '⛔ 스팸'
+  };
+
+  document.getElementById('detail-name').textContent = msg.name;
+  document.getElementById('detail-phone').textContent = msg.phone;
+  document.getElementById('detail-date').textContent = msg.created_at ? new Date(msg.created_at).toLocaleString('ko-KR') : '';
+  document.getElementById('detail-priority').textContent = priorityLabels[msg.priority] || '미분류';
+  document.getElementById('detail-message').textContent = msg.message;
+
+  // 배지 표시
+  const rightsBadge = document.getElementById('detail-rights');
+  const supBadge = document.getElementById('detail-supporter');
+  rightsBadge.classList.toggle('hidden', !msg.is_rights_member);
+  supBadge.classList.toggle('hidden', !msg.is_supporter);
+
+  // 답장 표시
+  const replySection = document.getElementById('detail-reply-section');
+  if (msg.admin_reply) {
+    replySection.style.display = 'block';
+    document.getElementById('detail-reply').textContent = msg.admin_reply;
+  } else {
+    replySection.style.display = 'none';
+  }
+
+  // 답장 버튼에 ID 저장
+  document.getElementById('detail-reply-btn').dataset.id = messageId;
+  document.getElementById('detail-reply-btn').dataset.name = msg.name;
+  document.getElementById('detail-reply-btn').dataset.reply = msg.admin_reply || '';
+
+  document.getElementById('detail-modal').classList.add('show');
+}
+
+function closeDetailModal() {
+  document.getElementById('detail-modal').classList.remove('show');
+}
+
+function closeDetailAndReply() {
+  const btn = document.getElementById('detail-reply-btn');
+  const id = btn.dataset.id;
+  const name = btn.dataset.name;
+  const reply = btn.dataset.reply;
+  closeDetailModal();
+  openReplyModal(id, name, reply);
 }
 
 // ─── 등급 변경 ──────────────────────────────────────────────
