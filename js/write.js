@@ -157,7 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
       valid = false;
     }
 
-    if (!valid) return;
+    if (!valid) {
+      scrollToFirstError();
+      showToast('입력 내용을 확인해주세요.', 'error');
+      return;
+    }
 
     // 제출
     submitBtn.disabled = true;
@@ -195,8 +199,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showError(errorId, inputEl) {
-  document.getElementById(errorId).classList.add('show');
-  if (inputEl) inputEl.classList.add('error');
+  const errorEl = document.getElementById(errorId);
+  errorEl.classList.add('show');
+  if (inputEl) {
+    inputEl.classList.add('error');
+    inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    inputEl.focus();
+  }
+}
+
+// 제출 실패 시 첫 번째 에러 필드로 스크롤
+function scrollToFirstError() {
+  const firstError = document.querySelector('.form-input.error');
+  if (firstError) {
+    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    firstError.focus();
+  }
 }
 
 function copyShareLink() {
