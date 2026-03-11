@@ -935,6 +935,35 @@ textarea.form-input {
   color: var(--gray-400);
 }
 
+/* ─── Election Law Notice ────────────────────────────────── */
+.election-law-notice {
+  background: #fff4e5;
+  border: 1.5px solid #ff9800;
+  border-radius: var(--radius-sm);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.election-law-notice strong {
+  display: block;
+  font-size: 0.9rem;
+  color: #e65100;
+  margin-bottom: 0.3rem;
+}
+
+.election-law-notice p {
+  font-size: 0.8rem;
+  color: #5d4037;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.election-law-notice em {
+  font-style: normal;
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* ─── Privacy Consent ────────────────────────────────────── */
 .consent-box {
   background: var(--gray-50);
