@@ -1,10 +1,14 @@
 /**
  * 공개 피드 페이지 로직
+ * - sessionStorage 캐시로 재방문 시 즉시 표시
+ * - 백그라운드에서 최신 데이터 갱신
  */
 
 let currentPage = 1;
 let totalMessages = 0;
 const cheeredSet = new Set(JSON.parse(localStorage.getItem('cheered') || '[]'));
+const CACHE_KEY = 'feed_cache_';
+const CACHE_TTL = 60000; // 1분 캐시
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFeed(1);
@@ -15,46 +19,76 @@ async function loadFeed(page) {
   const feedList = document.getElementById('feed-list');
   const pagination = document.getElementById('pagination');
 
+  // 캐시된 데이터 즉시 표시
+  const cached = getCachedFeed(page);
+  if (cached) {
+    renderFeedData(cached, feedList, pagination);
+  }
+
+  // API에서 최신 데이터 가져오기
   try {
     const data = await API.get('feed', {
       page: page,
       limit: CONFIG.FEED_PAGE_SIZE
     });
 
-    // 통계 업데이트
-    if (data.stats) {
-      animateCount(document.getElementById('stat-total'), data.stats.totalMessages);
-      animateCount(document.getElementById('stat-today'), data.stats.todayMessages);
-      animateCount(document.getElementById('stat-supporters'), data.stats.totalSupporters);
-      animateCount(document.getElementById('stat-new-supporters'), data.stats.todaySupporters);
-    }
-
-    totalMessages = data.total || 0;
-
-    if (!data.messages || data.messages.length === 0) {
-      feedList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">&#128172;</div>
-          <p>아직 메시지가 없습니다</p>
-          <p style="font-size:0.85rem;">첫 번째 메시지를 남겨주세요!</p>
-        </div>
-      `;
-      pagination.classList.add('hidden');
-      return;
-    }
-
-    feedList.innerHTML = data.messages.map(msg => renderMessageCard(msg)).join('');
-    renderPagination(data.total, page);
+    setCachedFeed(page, data);
+    renderFeedData(data, feedList, pagination);
 
   } catch (err) {
+    if (!cached) {
+      feedList.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">&#9888;&#65039;</div>
+          <p>메시지를 불러오지 못했습니다</p>
+          <p style="font-size:0.8rem; color:var(--gray-400);">잠시 후 다시 시도해주세요</p>
+        </div>
+      `;
+    }
+  }
+}
+
+function renderFeedData(data, feedList, pagination) {
+  // 통계 업데이트
+  if (data.stats) {
+    animateCount(document.getElementById('stat-total'), data.stats.totalMessages);
+    animateCount(document.getElementById('stat-today'), data.stats.todayMessages);
+    animateCount(document.getElementById('stat-supporters'), data.stats.totalSupporters);
+    animateCount(document.getElementById('stat-new-supporters'), data.stats.todaySupporters);
+  }
+
+  totalMessages = data.total || 0;
+
+  if (!data.messages || data.messages.length === 0) {
     feedList.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">&#9888;&#65039;</div>
-        <p>메시지를 불러오지 못했습니다</p>
-        <p style="font-size:0.8rem; color:var(--gray-400);">잠시 후 다시 시도해주세요</p>
+        <div class="empty-icon">&#128172;</div>
+        <p>아직 메시지가 없습니다</p>
+        <p style="font-size:0.85rem;">첫 번째 메시지를 남겨주세요!</p>
       </div>
     `;
+    pagination.classList.add('hidden');
+    return;
   }
+
+  feedList.innerHTML = data.messages.map(msg => renderMessageCard(msg)).join('');
+  renderPagination(data.total, currentPage);
+}
+
+function getCachedFeed(page) {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY + page);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return data;
+  } catch { return null; }
+}
+
+function setCachedFeed(page, data) {
+  try {
+    sessionStorage.setItem(CACHE_KEY + page, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* quota exceeded */ }
 }
 
 function renderMessageCard(msg) {
