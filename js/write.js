@@ -263,7 +263,7 @@ function showError(errorId, inputEl) {
 }
 
 function copyShareLink() {
-  const url = window.location.origin + '/nw2026/';
+  const url = window.location.origin + '/';
   navigator.clipboard.writeText(url).then(() => {
     showToast('링크가 복사되었습니다!', 'success');
   }).catch(() => {
