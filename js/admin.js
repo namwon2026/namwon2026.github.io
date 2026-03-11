@@ -10,6 +10,45 @@ let deleteTargetId = '';
 let deleteStep = 0;
 let cachedMessages = [];
 
+// ─── 페이지 캐시 (인접 페이지 프리패치용) ─────────────────────
+const ADMIN_CACHE_KEY = 'admin_cache_';
+const ADMIN_CACHE_TTL = 300000; // 5분
+
+function getAdminCachedPage(page, filterKey) {
+  try {
+    const raw = sessionStorage.getItem(ADMIN_CACHE_KEY + filterKey + '_' + page);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > ADMIN_CACHE_TTL) return null;
+    return data;
+  } catch { return null; }
+}
+
+function setAdminCachedPage(page, filterKey, data) {
+  try {
+    sessionStorage.setItem(ADMIN_CACHE_KEY + filterKey + '_' + page, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* quota exceeded */ }
+}
+
+function getFilterKey() {
+  return [
+    document.getElementById('filter-priority').value,
+    document.getElementById('filter-sort').value,
+    document.getElementById('filter-supporter').value,
+    document.getElementById('filter-rights').value,
+    document.getElementById('filter-search').value.trim()
+  ].join('|');
+}
+
+function clearAdminCache() {
+  const keys = [];
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key.startsWith(ADMIN_CACHE_KEY)) keys.push(key);
+  }
+  keys.forEach(k => sessionStorage.removeItem(k));
+}
+
 // ─── 초기화 ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) {
@@ -102,6 +141,7 @@ function showDashboard() {
 // ─── 메시지 목록 로드 ───────────────────────────────────────
 async function loadAdminMessages(page) {
   currentAdminPage = page || 1;
+  const filterKey = getFilterKey();
 
   const filters = {
     priority: document.getElementById('filter-priority').value,
@@ -118,8 +158,17 @@ async function loadAdminMessages(page) {
   if (rightsFilter === 'yes') filters.is_rights_member = true;
 
   const tbody = document.getElementById('admin-tbody');
-  tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
 
+  // 캐시된 데이터 즉시 표시
+  const cached = getAdminCachedPage(currentAdminPage, filterKey);
+  if (cached) {
+    renderAdminData(cached, tbody);
+    prefetchAdminPages(currentAdminPage, cached.total, filterKey, filters);
+  } else {
+    tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div></td></tr>';
+  }
+
+  // API에서 최신 데이터 가져오기
   try {
     const res = await API.post('admin_messages', {
       token: adminToken,
@@ -134,25 +183,49 @@ async function loadAdminMessages(page) {
       return;
     }
 
-    // KPI 업데이트
-    if (res.stats) {
-      updateKPI(res.stats);
-    }
+    setAdminCachedPage(currentAdminPage, filterKey, res);
+    renderAdminData(res, tbody);
 
-    // 테이블 렌더링
-    cachedMessages = res.messages || [];
-    if (cachedMessages.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">검색 결과가 없습니다</td></tr>';
-    } else {
-      tbody.innerHTML = cachedMessages.map(renderAdminRow).join('');
-    }
-
-    // 페이지네이션
-    renderAdminPagination(res.total, currentAdminPage);
+    // 인접 페이지 프리패치
+    prefetchAdminPages(currentAdminPage, res.total, filterKey, filters);
 
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">데이터를 불러오지 못했습니다</td></tr>';
+    if (!cached) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">데이터를 불러오지 못했습니다</td></tr>';
+    }
   }
+}
+
+function renderAdminData(res, tbody) {
+  // KPI 업데이트
+  if (res.stats) {
+    updateKPI(res.stats);
+  }
+
+  // 테이블 렌더링
+  cachedMessages = res.messages || [];
+  if (cachedMessages.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">검색 결과가 없습니다</td></tr>';
+  } else {
+    tbody.innerHTML = cachedMessages.map(renderAdminRow).join('');
+  }
+
+  // 페이지네이션
+  renderAdminPagination(res.total, currentAdminPage);
+}
+
+function prefetchAdminPages(current, total, filterKey, baseFilters) {
+  const totalPages = Math.ceil(total / CONFIG.ADMIN_PAGE_SIZE);
+  const pagesToPrefetch = [current - 1, current + 1].filter(p => p >= 1 && p <= totalPages);
+
+  pagesToPrefetch.forEach(page => {
+    if (!getAdminCachedPage(page, filterKey)) {
+      const filters = { ...baseFilters, page: page };
+      API.post('admin_messages', { token: adminToken, filters })
+        .then(res => { if (res.success) setAdminCachedPage(page, filterKey, res); })
+        .catch(() => {});
+    }
+  });
 }
 
 // ─── KPI 업데이트 ───────────────────────────────────────────
@@ -304,6 +377,7 @@ async function changePriority(messageId, priority) {
       priority
     });
     if (res.success) {
+      clearAdminCache();
       showToast('등급이 변경되었습니다.', 'success');
     } else {
       showToast(res.error || '등급 변경 실패', 'error');
@@ -342,6 +416,7 @@ async function sendReply() {
     });
 
     if (res.success) {
+      clearAdminCache();
       showToast('답장이 발송되었습니다.', 'success');
       closeReplyModal();
       loadAdminMessages(currentAdminPage);
@@ -385,6 +460,7 @@ async function confirmDelete() {
     });
 
     if (res.success) {
+      clearAdminCache();
       showToast('메시지가 삭제되었습니다.', 'success');
       closeDeleteModal();
       loadAdminMessages(currentAdminPage);
