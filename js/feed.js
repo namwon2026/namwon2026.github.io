@@ -87,20 +87,31 @@ function renderMessageCard(msg) {
 }
 
 async function handleCheer(btn, messageId) {
-  if (cheeredSet.has(messageId)) return;
+  if (cheeredSet.has(messageId)) {
+    showToast('이미 응원한 글입니다.', 'info');
+    return;
+  }
+
+  // 즉시 UI 반영 (더블클릭 방지)
+  btn.disabled = true;
+  btn.classList.add('cheered');
 
   try {
     const res = await API.post('cheer', { messageId });
     if (res.success) {
       cheeredSet.add(messageId);
       localStorage.setItem('cheered', JSON.stringify([...cheeredSet]));
-      btn.classList.add('cheered');
-      btn.disabled = true;
       const countEl = btn.querySelector('.cheer-count');
       countEl.textContent = res.cheers;
+      showToast('응원했습니다!', 'success');
+    } else {
+      // 실패 시 롤백
+      btn.disabled = false;
+      btn.classList.remove('cheered');
     }
   } catch (err) {
-    // 실패 시 무시
+    btn.disabled = false;
+    btn.classList.remove('cheered');
   }
 }
 
