@@ -218,7 +218,7 @@ function scrollToFirstError() {
 }
 
 function copyShareLink() {
-  const url = window.location.origin + '/index.html';
+  const url = window.location.origin + '/nw2026/';
   navigator.clipboard.writeText(url).then(() => {
     showToast('링크가 복사되었습니다!', 'success');
   }).catch(() => {
