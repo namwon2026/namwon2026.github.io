@@ -11,6 +11,7 @@ const CACHE_KEY = 'feed_cache_';
 const CACHE_TTL = 60000; // 1분 캐시
 
 function initFeed() {
+  if (!document.getElementById('feed-list')) return; // 다른 페이지에서는 실행하지 않음
   currentPage = 1;
   loadFeed(1);
 }

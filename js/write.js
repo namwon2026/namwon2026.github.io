@@ -22,6 +22,7 @@ function isValidName(name) {
 // ─── DOM 요소 ───────────────────────────────────────────────
 function initWrite() {
   const form = document.getElementById('message-form');
+  if (!form) return; // 다른 페이지에서는 실행하지 않음
   const nameInput = document.getElementById('input-name');
   const phoneInput = document.getElementById('input-phone');
   const messageInput = document.getElementById('input-message');
