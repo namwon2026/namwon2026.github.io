@@ -1,5 +1,6 @@
 /**
  * 시민 메시지 작성 페이지 로직
+ * 스마트폰 최적화 버전
  */
 
 // ─── 비속어 클라이언트 필터 (서버에서도 이중 검증) ──────────
@@ -13,13 +14,9 @@ function hasProfanityClient(text) {
   return CLIENT_PROFANITY.some(w => normalized.includes(w));
 }
 
-// ─── 초성만 입력 감지 ───────────────────────────────────────
-function hasOnlyConsonants(text) {
-  return /^[ㄱ-ㅎ]+$/.test(text.replace(/\s/g, ''));
-}
-
-function hasOnlyVowels(text) {
-  return /^[ㅏ-ㅣ]+$/.test(text.replace(/\s/g, ''));
+// ─── 이름 유효성 검증 (완성형 한글만 허용) ──────────────────
+function isValidName(name) {
+  return /^[가-힣]{2,5}$/.test(name);
 }
 
 // ─── DOM 요소 ───────────────────────────────────────────────
@@ -31,20 +28,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const charCurrent = document.getElementById('char-current');
   const submitBtn = document.getElementById('submit-btn');
 
-  // ── 이름 실시간 검증 ──────────────────────────────────────
+  // IME 조합 상태 추적 (한글 입력 중인지)
+  let isComposing = false;
+
+  nameInput.addEventListener('compositionstart', () => { isComposing = true; });
+  nameInput.addEventListener('compositionend', () => {
+    isComposing = false;
+    // 조합 완료 후 한글 외 문자 제거
+    nameInput.value = nameInput.value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣ]/g, '');
+  });
+
+  // ── 이름: input에서는 글자수만 체크, 검증은 blur에서 ────────
   nameInput.addEventListener('input', () => {
-    const val = nameInput.value;
+    if (isComposing) return; // IME 조합 중에는 간섭하지 않음
+    // 한글 외 문자 제거 (조합 완료된 상태에서만)
+    nameInput.value = nameInput.value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣ]/g, '');
+  });
+
+  // ── 이름: blur(포커스 벗어날 때)에서 검증 ──────────────────
+  nameInput.addEventListener('blur', () => {
+    const val = nameInput.value.trim();
     const errorEl = document.getElementById('error-name');
 
-    // 한글 외 문자 제거
-    nameInput.value = val.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣ]/g, '');
+    if (val.length === 0) {
+      // 아직 입력 안 한 상태 → 에러 숨김
+      errorEl.classList.remove('show');
+      nameInput.classList.remove('error');
+      return;
+    }
 
-    if (hasOnlyConsonants(nameInput.value) && nameInput.value.length >= 2) {
-      errorEl.textContent = '초성만으로는 이름을 입력할 수 없습니다';
-      errorEl.classList.add('show');
-      nameInput.classList.add('error');
-    } else if (hasOnlyVowels(nameInput.value) && nameInput.value.length >= 2) {
-      errorEl.textContent = '모음만으로는 이름을 입력할 수 없습니다';
+    if (!isValidName(val)) {
+      if (/^[ㄱ-ㅎ]+$/.test(val)) {
+        errorEl.textContent = '초성만으로는 이름을 입력할 수 없습니다';
+      } else if (/^[ㅏ-ㅣ]+$/.test(val)) {
+        errorEl.textContent = '모음만으로는 이름을 입력할 수 없습니다';
+      } else {
+        errorEl.textContent = '이름을 정확히 입력해주세요 (2~5자 한글)';
+      }
       errorEl.classList.add('show');
       nameInput.classList.add('error');
     } else {
@@ -53,47 +73,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── 전화번호 자동 하이픈 포맷 ─────────────────────────────
-  phoneInput.addEventListener('input', (e) => {
-    let val = phoneInput.value.replace(/[^0-9-]/g, '');
+  // ── 전화번호: 모바일 최적화 ────────────────────────────────
+  // 모바일에서 숫자 키패드가 뜨도록 inputmode 설정
+  phoneInput.setAttribute('inputmode', 'numeric');
 
-    // 010- 접두어 보호
-    if (!val.startsWith('010-')) {
-      val = '010-';
+  phoneInput.addEventListener('input', () => {
+    let raw = phoneInput.value.replace(/[^0-9]/g, '');
+
+    // 010 접두어 보장
+    if (!raw.startsWith('010')) {
+      raw = '010' + raw.replace(/^0*1?0?/, '');
     }
 
-    // 숫자만 추출 후 포맷
-    const digits = val.replace(/-/g, '');
-    if (digits.length <= 3) {
-      phoneInput.value = '010-';
-    } else if (digits.length <= 7) {
-      phoneInput.value = digits.slice(0, 3) + '-' + digits.slice(3);
+    // 최대 11자리
+    raw = raw.slice(0, 11);
+
+    // 하이픈 포맷 적용
+    let formatted;
+    if (raw.length <= 3) {
+      formatted = raw;
+    } else if (raw.length <= 7) {
+      formatted = raw.slice(0, 3) + '-' + raw.slice(3);
     } else {
-      phoneInput.value = digits.slice(0, 3) + '-' + digits.slice(3, 7) + '-' + digits.slice(7, 11);
+      formatted = raw.slice(0, 3) + '-' + raw.slice(3, 7) + '-' + raw.slice(7);
     }
 
+    phoneInput.value = formatted;
+
+    // 13자리 완성 시 에러 해제
     const errorEl = document.getElementById('error-phone');
-    if (phoneInput.value.length === 13) {
+    if (formatted.length === 13) {
       errorEl.classList.remove('show');
       phoneInput.classList.remove('error');
     }
   });
 
-  // 010- 삭제 방지
-  phoneInput.addEventListener('keydown', (e) => {
-    const cursorPos = phoneInput.selectionStart;
-    if ((e.key === 'Backspace' && cursorPos <= 4) ||
-        (e.key === 'Delete' && cursorPos < 4)) {
-      e.preventDefault();
+  // 전화번호 포커스 시 초기값 설정 (비어있을 때만)
+  phoneInput.addEventListener('focus', () => {
+    if (!phoneInput.value || phoneInput.value.length < 3) {
+      phoneInput.value = '010';
     }
   });
 
-  phoneInput.addEventListener('focus', () => {
-    if (phoneInput.value.length < 4) phoneInput.value = '010-';
-    // 커서를 끝으로
-    setTimeout(() => {
-      phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
-    }, 0);
+  // 전화번호 blur 시 검증
+  phoneInput.addEventListener('blur', () => {
+    const val = phoneInput.value;
+    const errorEl = document.getElementById('error-phone');
+
+    if (val.length <= 3 || val === '010') {
+      // 아직 입력 안 한 상태
+      phoneInput.value = '';
+      errorEl.classList.remove('show');
+      phoneInput.classList.remove('error');
+      return;
+    }
+
+    if (!/^010-\d{4}-\d{4}$/.test(val)) {
+      errorEl.classList.add('show');
+      phoneInput.classList.add('error');
+    } else {
+      errorEl.classList.remove('show');
+      phoneInput.classList.remove('error');
+    }
   });
 
   // ── 메시지 글자수 카운터 ──────────────────────────────────
@@ -122,11 +163,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 유효성 검증
     let valid = true;
+    let firstErrorEl = null;
 
     // 이름 검증
     const name = nameInput.value.trim();
-    if (!/^[가-힣]{2,5}$/.test(name)) {
+    if (!isValidName(name)) {
       showError('error-name', nameInput);
+      if (!firstErrorEl) firstErrorEl = nameInput;
       valid = false;
     }
 
@@ -134,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const phone = phoneInput.value;
     if (!/^010-\d{4}-\d{4}$/.test(phone)) {
       showError('error-phone', phoneInput);
+      if (!firstErrorEl) firstErrorEl = phoneInput;
       valid = false;
     }
 
@@ -141,13 +185,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const message = messageInput.value.trim();
     if (message.length < 10 || message.length > 500) {
       showError('error-message', messageInput);
+      if (!firstErrorEl) firstErrorEl = messageInput;
       valid = false;
     }
 
     // 비속어 클라이언트 체크
-    if (hasProfanityClient(message)) {
+    if (valid && hasProfanityClient(message)) {
       document.getElementById('error-message').textContent = '부적절한 표현이 포함되어 있습니다. 수정 후 다시 시도해주세요';
       showError('error-message', messageInput);
+      if (!firstErrorEl) firstErrorEl = messageInput;
       valid = false;
     }
 
@@ -158,7 +204,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!valid) {
-      scrollToFirstError();
+      // 모바일: 스크롤만 하고 focus는 하지 않음 (키보드 강제 팝업 방지)
+      if (firstErrorEl) {
+        firstErrorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       showToast('입력 내용을 확인해주세요.', 'error');
       return;
     }
@@ -180,6 +229,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 성공 화면 표시
         document.getElementById('form-section').classList.add('hidden');
         document.getElementById('success-section').classList.remove('hidden');
+        // 성공 화면 상단으로 스크롤
+        window.scrollTo({ top: 0, behavior: 'smooth' });
 
         if (res.is_rights_member) {
           const rightsEl = document.getElementById('rights-result');
@@ -203,17 +254,6 @@ function showError(errorId, inputEl) {
   errorEl.classList.add('show');
   if (inputEl) {
     inputEl.classList.add('error');
-    inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    inputEl.focus();
-  }
-}
-
-// 제출 실패 시 첫 번째 에러 필드로 스크롤
-function scrollToFirstError() {
-  const firstError = document.querySelector('.form-input.error');
-  if (firstError) {
-    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    firstError.focus();
   }
 }
 

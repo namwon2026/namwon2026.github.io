@@ -978,6 +978,56 @@ textarea.form-input {
   line-height: 1.5;
 }
 
+/* ─── Mobile Touch Optimization ──────────────────────────── */
+@media (max-width: 639px) {
+  /* 터치 영역 확대 */
+  .form-input {
+    padding: 0.85rem 0.9rem;
+    font-size: 16px; /* iOS 자동 확대 방지 */
+  }
+
+  textarea.form-input {
+    font-size: 16px;
+  }
+
+  .checkbox-label {
+    padding: 0.4rem 0;
+    min-height: 44px; /* 최소 터치 영역 */
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+
+  .btn {
+    min-height: 48px;
+  }
+
+  .cheer-btn {
+    min-height: 40px;
+    padding: 0.4rem 0.9rem;
+  }
+
+  /* 하단 네비 safe area */
+  .nav-bottom {
+    padding-bottom: calc(0.6rem + env(safe-area-inset-bottom));
+  }
+
+  /* 토스트 위치 모바일 최적화 */
+  .toast-container {
+    top: auto;
+    bottom: 5rem;
+    right: 0.5rem;
+    left: 0.5rem;
+  }
+
+  .toast {
+    max-width: 100%;
+    text-align: center;
+  }
+}
+
 /* ─── Responsive: Tablet+ ────────────────────────────────── */
 @media (min-width: 640px) {
   .stats-grid { grid-template-columns: repeat(4, 1fr); }
