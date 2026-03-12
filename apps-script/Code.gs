@@ -201,7 +201,7 @@ function saveMessage(params) {
   const id = generateUUID();
   const now = new Date().toISOString();
 
-  const isRightsMember = params.is_rights_member ? checkRightsMember(params.name, params.phone) : false;
+  const isRightsMember = params.is_rights_member || false;
 
   sheet.appendRow([
     id,                           // id
