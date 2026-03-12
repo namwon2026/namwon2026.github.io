@@ -10,8 +10,8 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://namwon2026.github.io/">
   <meta property="og:image" content="https://namwon2026.github.io/sot_bg.png">
-  <meta property="og:image:width" content="447">
-  <meta property="og:image:height" content="800">
+  <meta property="og:image:width" content="572">
+  <meta property="og:image:height" content="1024">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
@@ -29,9 +29,16 @@
       width: 100%;
       height: calc(100vh - 4.5rem);
       height: calc(100dvh - 4.5rem);
-      background: url('sot_bg.png') center top / cover no-repeat;
+      background: url('sot_bg.png') center top / auto no-repeat;
       background-color: #1d5ae6;
       cursor: pointer;
+    }
+
+    /* 화면이 이미지(572px)보다 작을 때 너비에 맞춤 */
+    @media (max-width: 572px) {
+      .landing-bg {
+        background-size: 100% auto;
+      }
     }
   </style>
 </head>
