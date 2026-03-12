@@ -282,8 +282,9 @@ function renderAdminRow(msg) {
     ? `<div class="reply-preview">&#128172; ${escapeHtml(msg.admin_reply.length > 30 ? msg.admin_reply.substring(0, 30) + '...' : msg.admin_reply)}</div>`
     : '';
 
-  const kakaoIcon = msg.kakao_sent ? '&#10004;' : (msg.admin_reply ? '&#10004;' : '&#9711;');
-  const kakaoColor = msg.kakao_sent ? 'var(--success)' : 'var(--gray-400)';
+  const hasReply = msg.kakao_sent || msg.admin_reply;
+  const replyIcon = hasReply ? '&#10004;' : 'no';
+  const replyColor = hasReply ? 'var(--success)' : 'var(--danger)';
 
   return `
     <tr>
@@ -302,7 +303,7 @@ function renderAdminRow(msg) {
       <td>${msg.is_rights_member ? '<span style="color:var(--success)">&#10004;</span>' : '-'}</td>
       <td>${msg.is_supporter ? '<span style="color:var(--accent)">&#10004;</span>' : '-'}</td>
       <td style="white-space:nowrap; font-size:0.72rem;">${formatDate(msg.created_at)}</td>
-      <td style="color:${kakaoColor}">${kakaoIcon}</td>
+      <td style="color:${replyColor};${hasReply ? '' : 'cursor:pointer;font-weight:700;'}" ${hasReply ? '' : `data-id="${escapeHtml(msg.id)}" data-name="${escapeHtml(msg.name)}" data-reply="" onclick="openReplyModal(this.dataset.id, this.dataset.name, this.dataset.reply)"`}>${replyIcon}</td>
       <td>
         <div class="action-btns">
           <button class="action-btn btn-reply" data-id="${escapeHtml(msg.id)}" data-name="${escapeHtml(msg.name)}" data-reply="${escapeHtml(msg.admin_reply || '')}" onclick="openReplyModal(this.dataset.id, this.dataset.name, this.dataset.reply)">&#128172;</button>
