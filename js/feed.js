@@ -17,7 +17,7 @@ function initFeed() {
 }
 
 // 라우터 등록 + 초기 로드
-if (typeof Router !== 'undefined') Router.register('index.html', initFeed);
+if (typeof Router !== 'undefined') Router.register('list.html', initFeed);
 document.addEventListener('DOMContentLoaded', initFeed);
 
 async function loadFeed(page) {
